@@ -6,8 +6,9 @@ Transform your doodles into stunning designs with AI! Sketch, prompt, and genera
 
 ### Prerequisites
 - Node.js 18+
-- Python 3.8+
+- Python 3.11 (recommended) or 3.8-3.12
 - npm or pnpm
+- NVIDIA GPU with CUDA 11.8+ (optional, for faster AI processing)
 
 ### Automated Setup (Recommended)
 
@@ -30,8 +31,20 @@ cd frontend && npm install && cd ..
 ```
 
 2. **Install backend dependencies:**
+
+**Option A - Auto-detect (recommended):**
 ```bash
 cd backend && pip install -r requirements.txt && cd ..
+```
+
+**Option B - CPU-only (no GPU):**
+```bash
+cd backend && pip install -r requirements-cpu.txt && cd ..
+```
+
+**Option C - GPU with CUDA:**
+```bash
+cd backend && pip install -r requirements-gpu.txt && cd ..
 ```
 
 3. **Set up environment files:**
@@ -73,6 +86,22 @@ The platform uses **ControlNet + Stable Diffusion** for AI-powered image generat
 - 8GB+ RAM (16GB recommended)
 - NVIDIA GPU with 6GB+ VRAM (optional, but much faster)
 - ~10GB disk space for model downloads
+
+## 🐍 Python Version Compatibility
+
+| Python Version | Status | Notes |
+|----------------|--------|-------|
+| 3.8 | ✅ Supported | Minimum version |
+| 3.9 | ✅ Supported | Stable |
+| 3.10 | ✅ Supported | Stable |
+| 3.11 | ✅ **Recommended** | Best performance |
+| 3.12 | ⚠️ Limited | Some packages may have issues |
+
+**Installation Tips:**
+- Use `requirements.txt` for automatic detection
+- Use `requirements-cpu.txt` for CPU-only systems
+- Use `requirements-gpu.txt` for NVIDIA GPU systems
+- Virtual environment recommended: `python -m venv venv`
 
 ## 🏗️ Project Structure
 

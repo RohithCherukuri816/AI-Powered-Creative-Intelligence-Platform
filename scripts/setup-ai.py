@@ -13,6 +13,17 @@ from controlnet_aux import CannyDetector, LineartDetector
 
 def check_requirements():
     """Check if all required packages are installed"""
+    import sys
+    
+    # Check Python version
+    if sys.version_info < (3, 8):
+        print("❌ Python 3.8+ is required")
+        return False
+    elif sys.version_info >= (3, 12):
+        print("⚠️  Python 3.12+ detected - some packages may not be fully compatible")
+    
+    print(f"✅ Python {sys.version_info.major}.{sys.version_info.minor} detected")
+    
     required_packages = [
         'torch', 'diffusers', 'transformers', 'controlnet_aux', 
         'opencv-python', 'numpy', 'pillow'
@@ -21,13 +32,16 @@ def check_requirements():
     missing_packages = []
     for package in required_packages:
         try:
-            __import__(package.replace('-', '_'))
+            __import__(package.replace('-', '_').replace('opencv_python', 'cv2'))
         except ImportError:
             missing_packages.append(package)
     
     if missing_packages:
         print(f"❌ Missing packages: {', '.join(missing_packages)}")
-        print("Please install them with: pip install -r requirements.txt")
+        print("\n📦 Installation options:")
+        print("  CPU-only: pip install -r requirements-cpu.txt")
+        print("  GPU (CUDA): pip install -r requirements-gpu.txt")
+        print("  Auto-detect: pip install -r requirements.txt")
         return False
     
     print("✅ All required packages are installed")

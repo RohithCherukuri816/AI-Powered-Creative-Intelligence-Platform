@@ -26,7 +26,17 @@ cd ..
 REM Install backend dependencies
 echo 🐍 Installing backend dependencies...
 cd backend
-pip install -r requirements.txt
+
+set /p gpu_choice="Do you have an NVIDIA GPU for faster AI processing? (y/n): "
+
+if /i "%gpu_choice%"=="y" (
+    echo Installing GPU version with CUDA support...
+    pip install -r requirements-gpu.txt
+) else (
+    echo Installing CPU-only version...
+    pip install -r requirements-cpu.txt
+)
+
 cd ..
 
 REM Copy environment files

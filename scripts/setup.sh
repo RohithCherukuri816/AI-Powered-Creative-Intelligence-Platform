@@ -23,7 +23,19 @@ cd ..
 # Install backend dependencies
 echo "🐍 Installing backend dependencies..."
 cd backend
-pip3 install -r requirements.txt
+
+# Check if user has GPU
+echo "Do you have an NVIDIA GPU for faster AI processing? (y/n)"
+read -r gpu_choice
+
+if [ "$gpu_choice" = "y" ] || [ "$gpu_choice" = "Y" ]; then
+    echo "Installing GPU version with CUDA support..."
+    pip3 install -r requirements-gpu.txt
+else
+    echo "Installing CPU-only version..."
+    pip3 install -r requirements-cpu.txt
+fi
+
 cd ..
 
 # Copy environment files
