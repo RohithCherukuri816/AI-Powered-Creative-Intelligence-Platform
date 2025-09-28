@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-gradient-to-br from-pastel-lavender via-pastel-pink to-pastel-blue min-h-screen;
+        font-family: 'Inter', sans-serif;
+    }
+}
+
+@layer components {
+    .glass-card {
+        @apply bg-white/80 backdrop-blur-sm border border-white/20 shadow-xl;
+    }
+
+    .glow-border {
+        @apply border-2 border-pastel-purple/50 focus:border-pastel-purple focus:ring-2 focus:ring-pastel-purple/20 transition-all duration-300;
+    }
+
+    .btn-primary {
+        @apply bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-semibold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300;
+    }
+
+    .btn-secondary {
+        @apply bg-white/90 text-pastel-purple font-medium py-2 px-6 rounded-full border border-pastel-purple/30 hover:bg-pastel-purple hover:text-white transition-all duration-300;
+    }
+}
