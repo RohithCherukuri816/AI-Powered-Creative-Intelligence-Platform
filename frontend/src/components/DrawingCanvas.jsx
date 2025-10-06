@@ -115,7 +115,7 @@ const DrawingCanvas = ({
         setIsDrawing(true);
         const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
 
-        const ctx = canvasRef.current.getContext('2d');
+        const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
 
         if (tool === 'eraser') {
             ctx.globalCompositeOperation = 'destination-out';

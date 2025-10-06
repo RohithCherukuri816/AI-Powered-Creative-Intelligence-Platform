@@ -7,7 +7,7 @@ import GeneratedImageCard from './components/GeneratedImageCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
 import TouchGestures from './components/TouchGestures';
-import { api } from './api';
+import { api, toAbsoluteUrl } from './api';
 
 function App() {
     const [sketchData, setSketchData] = useState(null);
@@ -67,7 +67,8 @@ function App() {
 
         try {
             const result = await api.generateDesign(prompt, sketchData);
-            setGeneratedImage(result.image_url);
+            setGeneratedImage(toAbsoluteUrl(result.image_url));
+            setRecognizedLabel(result.recognized_label || null);
             setActiveStep(4);
         } catch (error) {
             console.error('Generation failed:', error);
@@ -78,8 +79,11 @@ function App() {
         }
     };
 
+    const [recognizedLabel, setRecognizedLabel] = useState(null);
+
     const handleTryAgain = () => {
         setGeneratedImage(null);
+        setRecognizedLabel(null);
         setError(null);
         setActiveStep(2);
     };

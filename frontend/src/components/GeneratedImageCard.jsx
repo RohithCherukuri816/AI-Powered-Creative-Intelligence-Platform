@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Download, RefreshCw, Heart, Share2 } from 'lucide-react';
 
-const GeneratedImageCard = ({ imageUrl, onTryAgain, onDownload }) => {
+const GeneratedImageCard = ({ imageUrl, onTryAgain, onDownload, label }) => {
     if (!imageUrl) return null;
 
     const handleDownload = () => {
@@ -59,7 +59,13 @@ const GeneratedImageCard = ({ imageUrl, onTryAgain, onDownload }) => {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.3 }}
                 >
-                    Amazing! Here's your transformed artwork
+                    {label ? (
+                        <span>
+                            Recognized: <span className="font-semibold text-gray-800">{label}</span>
+                        </span>
+                    ) : (
+                        "Amazing! Here's your transformed artwork"
+                    )}
                 </motion.p>
             </div>
 

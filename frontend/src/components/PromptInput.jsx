@@ -122,9 +122,7 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                             boxShadow: mergedButtonStyle.shadow
                         }}
                         whileHover={{ 
-                            scale: isLoading ? 1 : 1.1,
-                            background: mergedButtonStyle.hoverBackground,
-                            boxShadow: '0 15px 35px rgba(234, 88, 12, 0.4)'
+                            scale: isLoading ? 1 : 1.1
                         }}
                         whileTap={{ scale: 0.9 }}
                     >
@@ -157,9 +155,7 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                         boxShadow: mergedButtonStyle.shadow
                     }}
                     whileHover={{ 
-                        scale: isLoading ? 1 : 1.02,
-                        background: mergedButtonStyle.hoverBackground,
-                        boxShadow: '0 20px 40px rgba(234, 88, 12, 0.4)'
+                        scale: isLoading ? 1 : 1.02
                     }}
                     whileTap={{ scale: 0.98 }}
                 >
@@ -229,10 +225,7 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                                 color: mergedSuggestionStyle.color
                             }}
                             whileHover={{ 
-                                scale: 1.05,
-                                background: mergedSuggestionStyle.hoverBackground,
-                                color: 'white',
-                                borderColor: '#ea580c'
+                                scale: 1.05
                             }}
                             whileTap={{ scale: 0.95 }}
                             disabled={isLoading}

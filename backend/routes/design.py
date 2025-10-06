@@ -5,6 +5,7 @@ import io
 import os
 import uuid
 from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
+import numpy as np
 import random
 from datetime import datetime
 
@@ -21,6 +22,7 @@ class DesignResponse(BaseModel):
     generation_id: str
     prompt_used: str
     processing_time: float
+    recognized_label: str | None = None
 
 @router.post("/generate-design", response_model=DesignResponse)
 async def generate_design(request: DesignRequest):
@@ -44,15 +46,30 @@ async def generate_design(request: DesignRequest):
         
         # Decode base64 image
         try:
-            # Remove data URL prefix if present
-            if request.sketch.startswith('data:image'):
-                request.sketch = request.sketch.split(',')[1]
+            # Remove data URL prefix if present (do not mutate request model)
+            sketch_b64 = request.sketch.split(',')[1] if request.sketch.startswith('data:image') else request.sketch
             
-            image_data = base64.b64decode(request.sketch)
+            image_data = base64.b64decode(sketch_b64)
             sketch_image = Image.open(io.BytesIO(image_data))
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid image data: {str(e)}")
         
+        # Validate that the sketch contains actual drawing (not blank canvas)
+        try:
+            img_rgb = sketch_image.convert('RGB')
+            img_arr = np.array(img_rgb)
+            # Count pixels that are not almost white
+            non_white = np.sum((img_arr[:, :, 0] < 240) | (img_arr[:, :, 1] < 240) | (img_arr[:, :, 2] < 240))
+            total = img_arr.shape[0] * img_arr.shape[1]
+            drawing_ratio = non_white / max(1, total)
+            if drawing_ratio < 0.005:  # <0.5% non-white pixels → treat as blank
+                raise HTTPException(status_code=400, detail="No drawing detected in sketch. Please draw something first.")
+        except HTTPException:
+            raise
+        except Exception:
+            # If detection fails, proceed without blocking
+            pass
+
         # Generate unique ID for this generation
         generation_id = str(uuid.uuid4())
         
@@ -71,6 +88,22 @@ async def generate_design(request: DesignRequest):
         # Calculate processing time
         processing_time = (datetime.now() - start_time).total_seconds()
         
+        # Recognize doodle label (simple keyword-based heuristic)
+        recognized_label = None
+        try:
+            keywords = [
+                "van", "car", "bus", "bicycle", "bike", "motorcycle", "truck",
+                "cat", "dog", "bird", "fish", "horse",
+                "house", "tree", "flower", "boat", "airplane", "face", "person"
+            ]
+            prompt_lower = request.prompt.lower()
+            for k in keywords:
+                if k in prompt_lower:
+                    recognized_label = k
+                    break
+        except Exception:
+            recognized_label = None
+
         # Return the result
         image_url = f"/uploads/{filename}"
         
@@ -78,7 +111,8 @@ async def generate_design(request: DesignRequest):
             image_url=image_url,
             generation_id=generation_id,
             prompt_used=request.prompt,
-            processing_time=processing_time
+            processing_time=processing_time,
+            recognized_label=recognized_label
         )
         
     except HTTPException:

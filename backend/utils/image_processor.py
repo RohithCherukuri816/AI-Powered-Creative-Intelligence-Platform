@@ -5,8 +5,6 @@ from typing import Tuple, Optional
 import cv2
 import os
 import logging
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
-from controlnet_aux import CannyDetector, LineartDetector, OpenposeDetector
 from config.ai_config import get_ai_config, STYLE_ENHANCEMENTS, QUALITY_ENHANCERS, NEGATIVE_PROMPTS
 
 # Set up logging
@@ -33,14 +31,12 @@ class ImageProcessor:
         logger.info(f"AI models enabled: {self.config['use_ai_models']}")
         
         # Initialize ControlNet models (lazy loading)
+        self._ai_modules_loaded = False
         self.controlnet_canny = None
-        self.controlnet_lineart = None
         self.pipe_canny = None
-        self.pipe_lineart = None
         
         # Preprocessors (lazy loading)
         self.canny_detector = None
-        self.lineart_detector = None
         
         # Fallback colors for mock mode
         self.pastel_colors = [
@@ -83,36 +79,57 @@ class ImageProcessor:
             return self._apply_fallback_processing(image, prompt)
     
     def _load_controlnet_models(self):
-        """Lazy load ControlNet models to save memory"""
+        """Lazy load ControlNet models to save memory and avoid heavy imports when disabled"""
         try:
             # Check if AI models are enabled
             if not self.config["use_ai_models"]:
                 logger.info("AI models disabled in configuration")
                 return False
-            
-            if self.controlnet_canny is None:
-                logger.info("Loading ControlNet models...")
-                
+
+            # Import heavy modules lazily
+            if not self._ai_modules_loaded:
+                logger.info("Importing AI modules (diffusers/controlnet-aux)...")
+                try:
+                    from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
+                    from controlnet_aux import CannyDetector
+                except Exception as e:
+                    logger.error(f"Failed to import AI modules: {e}")
+                    return False
+                # Stash on instance for reuse
+                self._StableDiffusionControlNetPipeline = StableDiffusionControlNetPipeline
+                self._ControlNetModel = ControlNetModel
+                self._CannyDetector = CannyDetector
+                self._ai_modules_loaded = True
+
+            if self.controlnet_canny is None or self.pipe_canny is None:
+                logger.info("Loading ControlNet models and pipeline...")
+
                 # Load preprocessors
                 if self.canny_detector is None:
-                    self.canny_detector = CannyDetector()
-                
+                    self.canny_detector = self._CannyDetector()
+
                 # Load ControlNet model
-                self.controlnet_canny = ControlNetModel.from_pretrained(
+                auth_token = self.config.get("huggingface_token")
+                dtype = torch.float16 if self.device == "cuda" else torch.float32
+                self.controlnet_canny = self._ControlNetModel.from_pretrained(
                     self.config["controlnet_model"],
-                    torch_dtype=torch.float16 if self.device == "cuda" else torch.float32
+                    torch_dtype=dtype,
+                    use_safetensors=True,
+                    token=auth_token
                 )
-                
+
                 # Load Stable Diffusion pipeline
-                self.pipe_canny = StableDiffusionControlNetPipeline.from_pretrained(
+                self.pipe_canny = self._StableDiffusionControlNetPipeline.from_pretrained(
                     self.config["stable_diffusion_model"],
                     controlnet=self.controlnet_canny,
-                    torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                    torch_dtype=dtype,
                     safety_checker=None,
-                    requires_safety_checker=False
+                    requires_safety_checker=False,
+                    use_safetensors=True,
+                    token=auth_token
                 )
                 self.pipe_canny.to(self.device)
-                
+
                 # Enable memory optimizations
                 if hasattr(self.pipe_canny, "enable_xformers_memory_efficient_attention"):
                     try:
@@ -120,18 +137,20 @@ class ImageProcessor:
                         logger.info("XFormers memory optimization enabled")
                     except Exception as e:
                         logger.warning(f"Could not enable XFormers: {e}")
-                
+
                 # Enable CPU offloading for low VRAM systems
-                if self.device == "cuda":
+                if self.device == "cuda" and hasattr(self.pipe_canny, "enable_model_cpu_offload"):
                     try:
                         self.pipe_canny.enable_model_cpu_offload()
                         logger.info("Model CPU offloading enabled")
                     except Exception as e:
                         logger.warning(f"Could not enable CPU offloading: {e}")
-                
+
                 logger.info("ControlNet models loaded successfully!")
                 return True
-                
+
+            return True
+
         except Exception as e:
             logger.error(f"Failed to load ControlNet models: {str(e)}")
             logger.info("Falling back to traditional image processing")
@@ -164,6 +183,9 @@ class ImageProcessor:
             
             # Enhance the prompt for better results
             enhanced_prompt = self._enhance_prompt(prompt)
+            negative_prompt = self._build_negative_prompt()
+
+            params = self.config.get("generation_params", {})
             
             # Detect control method based on image content
             control_method = self._detect_best_control_method(image)
@@ -180,13 +202,20 @@ class ImageProcessor:
             # Generate image
             logger.info(f"Generating with prompt: {enhanced_prompt}")
             
+            # Use CPU generator by default to avoid device issues
+            if self.device == "cuda" and torch.cuda.is_available():
+                generator = torch.Generator(device="cuda").manual_seed(42)
+            else:
+                generator = torch.Generator().manual_seed(42)
+
             result = pipe(
                 prompt=enhanced_prompt,
+                negative_prompt=negative_prompt,
                 image=control_image,
-                num_inference_steps=20,  # Balance between quality and speed
-                guidance_scale=7.5,      # How closely to follow the prompt
-                controlnet_conditioning_scale=1.0,  # How closely to follow the control image
-                generator=torch.Generator(device=self.device).manual_seed(42)  # For reproducible results
+                num_inference_steps=int(params.get("num_inference_steps", 20)),
+                guidance_scale=float(params.get("guidance_scale", 7.5)),
+                controlnet_conditioning_scale=float(params.get("controlnet_conditioning_scale", 1.0)),
+                generator=generator
             ).images[0]
             
             return result
@@ -198,7 +227,7 @@ class ImageProcessor:
     def _enhance_prompt(self, prompt: str) -> str:
         """Enhance the user prompt for better AI generation"""
         # Add quality and style modifiers
-        quality_terms = "high quality, detailed, beautiful, masterpiece, best quality"
+        quality_terms = ", ".join(QUALITY_ENHANCERS)
         
         # Detect style and add appropriate modifiers
         style_modifiers = ""
@@ -219,6 +248,13 @@ class ImageProcessor:
         enhanced = f"{prompt}, {style_modifiers}, {quality_terms}" if style_modifiers else f"{prompt}, {quality_terms}"
         
         return enhanced
+
+    def _build_negative_prompt(self) -> str:
+        """Build a negative prompt string from configuration"""
+        try:
+            return ", ".join(NEGATIVE_PROMPTS)
+        except Exception:
+            return ""
     
     def _detect_best_control_method(self, image: Image.Image) -> str:
         """Detect the best ControlNet method based on image characteristics"""
