@@ -31,7 +31,7 @@ class DesignResponse(BaseModel):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Doodle Recognition & AI Generation", version="2.0.0")
+    app = FastAPI(title="Doodle to Realistic Image Generator", version="4.0.0")
 
     # CORS configuration
     default_origins = [
@@ -60,14 +60,20 @@ def create_app() -> FastAPI:
     @app.get("/")
     async def root():
         return {
-            "message": "Doodle Recognition & AI Generation Backend", 
-            "version": "2.0.0",
-            "features": ["doodle_recognition", "ai_image_generation"]
+            "message": "Doodle to Realistic Image Generator", 
+            "version": "4.0.0",
+            "features": ["doodle_recognition", "doodle_to_realistic_transformation"],
+            "mode": "DOODLE_ENHANCEMENT"
         }
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "cuda_available": torch.cuda.is_available()}
+        import torch
+        return {
+            "status": "ok", 
+            "cuda_available": torch.cuda.is_available(),
+            "mode": "doodle_enhancement"
+        }
 
     @app.post("/generate-design", response_model=DesignResponse)
     async def generate_design(request: DesignRequest):
@@ -78,11 +84,14 @@ def create_app() -> FastAPI:
         if not request.sketch:
             raise HTTPException(status_code=400, detail="Sketch data is required")
 
+        print(f"🎨 Received generation request: {request.prompt}")
+
         # Decode base64 image
         try:
             sketch_b64 = request.sketch.split(',')[1] if request.sketch.startswith('data:image') else request.sketch
             image_data = base64.b64decode(sketch_b64)
             sketch_image = Image.open(io.BytesIO(image_data))
+            print("✅ Sketch image decoded successfully")
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid image data: {e}")
 
@@ -93,16 +102,20 @@ def create_app() -> FastAPI:
 
         # STEP 1: Recognize the doodle
         try:
+            print("🔍 Recognizing doodle...")
             recognized_label, confidence = recognizer.recognize_doodle(sketch_image)
             recognition_success = recognized_label is not None and confidence > 0.2
             
-            print(f"Recognition result: {recognized_label} (confidence: {confidence:.2f})")
+            if recognition_success:
+                print(f"✅ Recognition result: {recognized_label} (confidence: {confidence:.2f})")
+            else:
+                print(f"⚠️ Recognition failed or low confidence: {recognized_label} (confidence: {confidence:.2f})")
             
         except Exception as e:
-            print(f"Recognition failed: {e}")
-            # Continue with generation even if recognition fails
+            print(f"❌ Recognition failed: {e}")
 
-        # STEP 2: Generate AI image based on recognition
+        # STEP 2: Generate REALISTIC VERSION of the ACTUAL doodle
+        print("🚀 Transforming doodle to realistic version...")
         result_img = processor.apply_style_transformation(
             sketch_image, 
             request.prompt, 
@@ -120,6 +133,9 @@ def create_app() -> FastAPI:
         # Cache-bust URL
         image_url = f"/uploads/{filename}?t={int(datetime.now().timestamp())}"
 
+        print(f"✅ Transformation completed in {processing_time:.2f}s")
+        print(f"📁 Image saved: {filename}")
+
         return DesignResponse(
             image_url=image_url,
             generation_id=generation_id,
@@ -135,7 +151,8 @@ def create_app() -> FastAPI:
         """Return list of supported doodle labels"""
         return {
             "supported_labels": recognizer.classes,
-            "total_categories": len(recognizer.classes)
+            "total_categories": len(recognizer.classes),
+            "message": "Doodles are transformed into realistic versions while keeping their original structure"
         }
 
     return app
