@@ -5,6 +5,7 @@ from typing import Tuple, Optional
 import cv2
 import os
 import logging
+import random
 from config.ai_config import get_ai_config, STYLE_ENHANCEMENTS, QUALITY_ENHANCERS, NEGATIVE_PROMPTS
 
 # Set up logging
@@ -15,9 +16,22 @@ class ImageProcessor:
     """
     AI-powered image processing using ControlNet + Stable Diffusion.
     Transforms sketches into stunning artwork while preserving structure.
+    Singleton pattern to ensure models are loaded only once.
     """
     
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(ImageProcessor, cls).__new__(cls)
+        return cls._instance
+    
     def __init__(self):
+        # Only initialize once
+        if ImageProcessor._initialized:
+            return
+            
         # Load configuration
         self.config = get_ai_config()
         
@@ -32,11 +46,20 @@ class ImageProcessor:
         
         # Initialize ControlNet models (lazy loading)
         self._ai_modules_loaded = False
+        self._models_loaded = False  # Add explicit flag for model loading state
         self.controlnet_canny = None
         self.pipe_canny = None
         
         # Preprocessors (lazy loading)
         self.canny_detector = None
+        
+        # Cache for AI modules to prevent reimporting
+        self._StableDiffusionControlNetPipeline = None
+        self._ControlNetModel = None
+        self._CannyDetector = None
+        
+        # Mark as initialized
+        ImageProcessor._initialized = True
         
         # Fallback colors for mock mode
         self.pastel_colors = [
@@ -48,6 +71,10 @@ class ImageProcessor:
             (221, 160, 221),  # Plum
             (255, 255, 224),  # Light Yellow
         ]
+    
+    def are_models_loaded(self):
+        """Check if AI models are loaded without triggering a load"""
+        return self._models_loaded and self.controlnet_canny is not None and self.pipe_canny is not None
     
     def apply_style_transformation(self, image: Image.Image, prompt: str, generation_id: str) -> Image.Image:
         """
@@ -86,31 +113,45 @@ class ImageProcessor:
                 logger.info("AI models disabled in configuration")
                 return False
 
-            # Import heavy modules lazily
+            # Check if models are already loaded and cached properly
+            if (self._models_loaded and 
+                self.controlnet_canny is not None and 
+                self.pipe_canny is not None and
+                self.canny_detector is not None):
+                logger.info("✅ Models already loaded and cached, reusing...")
+                return True
+
+            # Import heavy modules lazily (only once)
             if not self._ai_modules_loaded:
                 logger.info("Importing AI modules (diffusers/controlnet-aux)...")
                 try:
                     from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
                     from controlnet_aux import CannyDetector
+                    
+                    # Cache the classes to prevent reimporting
+                    self._StableDiffusionControlNetPipeline = StableDiffusionControlNetPipeline
+                    self._ControlNetModel = ControlNetModel
+                    self._CannyDetector = CannyDetector
+                    self._ai_modules_loaded = True
+                    logger.info("✅ AI modules imported and cached")
                 except Exception as e:
                     logger.error(f"Failed to import AI modules: {e}")
                     return False
-                # Stash on instance for reuse
-                self._StableDiffusionControlNetPipeline = StableDiffusionControlNetPipeline
-                self._ControlNetModel = ControlNetModel
-                self._CannyDetector = CannyDetector
-                self._ai_modules_loaded = True
 
-            if self.controlnet_canny is None or self.pipe_canny is None:
-                logger.info("Loading ControlNet models and pipeline...")
+            # Load models only if not already loaded
+            if not self._models_loaded:
+                logger.info("🔄 Loading ControlNet models and pipeline (this will take a moment)...")
 
                 # Load preprocessors
                 if self.canny_detector is None:
+                    logger.info("Loading Canny detector...")
                     self.canny_detector = self._CannyDetector()
 
                 # Load ControlNet model
                 auth_token = self.config.get("huggingface_token")
                 dtype = torch.float16 if self.device == "cuda" else torch.float32
+                
+                logger.info("Loading ControlNet model...")
                 self.controlnet_canny = self._ControlNetModel.from_pretrained(
                     self.config["controlnet_model"],
                     torch_dtype=dtype,
@@ -119,6 +160,7 @@ class ImageProcessor:
                 )
 
                 # Load Stable Diffusion pipeline
+                logger.info("Loading Stable Diffusion pipeline...")
                 self.pipe_canny = self._StableDiffusionControlNetPipeline.from_pretrained(
                     self.config["stable_diffusion_model"],
                     controlnet=self.controlnet_canny,
@@ -128,6 +170,8 @@ class ImageProcessor:
                     use_safetensors=True,
                     token=auth_token
                 )
+                
+                logger.info(f"Moving pipeline to device: {self.device}")
                 self.pipe_canny.to(self.device)
 
                 # Enable memory optimizations
@@ -146,7 +190,9 @@ class ImageProcessor:
                     except Exception as e:
                         logger.warning(f"Could not enable CPU offloading: {e}")
 
-                logger.info("ControlNet models loaded successfully!")
+                # Mark as loaded to prevent reloading
+                self._models_loaded = True
+                logger.info("✅ ControlNet models loaded successfully and cached!")
                 return True
 
             return True
@@ -177,9 +223,13 @@ class ImageProcessor:
     def _generate_with_controlnet(self, image: Image.Image, prompt: str) -> Optional[Image.Image]:
         """Generate image using ControlNet + Stable Diffusion"""
         try:
-            # Load models if not already loaded
-            if not self._load_controlnet_models():
-                return None
+            # Ensure models are loaded (this should be very fast after first load)
+            if not self._models_loaded or self.controlnet_canny is None or self.pipe_canny is None:
+                logger.info("Models not loaded, loading now...")
+                if not self._load_controlnet_models():
+                    return None
+            else:
+                logger.info("✅ Using cached models for generation")
             
             # Enhance the prompt for better results
             enhanced_prompt = self._enhance_prompt(prompt)

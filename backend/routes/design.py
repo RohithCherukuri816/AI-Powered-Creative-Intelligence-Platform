@@ -8,8 +8,19 @@ from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 import numpy as np
 import random
 from datetime import datetime
+import time
 
 from utils.image_processor import ImageProcessor
+
+# Create a global instance to avoid reloading models
+_image_processor = None
+
+def get_image_processor():
+    """Get the singleton ImageProcessor instance"""
+    global _image_processor
+    if _image_processor is None:
+        _image_processor = ImageProcessor()
+    return _image_processor
 
 router = APIRouter()
 
@@ -41,8 +52,11 @@ async def generate_design(request: DesignRequest):
         if not request.sketch:
             raise HTTPException(status_code=400, detail="Sketch data is required")
         
-        # Process the sketch
-        processor = ImageProcessor()
+        # Process the sketch (use singleton to avoid reloading models)
+        processor_start = time.time()
+        processor = get_image_processor()
+        processor_time = time.time() - processor_start
+        print(f"⏱️ Processor instance obtained in {processor_time:.3f}s (models loaded: {processor.are_models_loaded()})")
         
         # Decode base64 image
         try:

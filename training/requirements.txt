@@ -1,0 +1,44 @@
+# Training Requirements for GPU Machine
+# Python 3.8+ recommended
+
+# Deep Learning Framework
+tensorflow-gpu==2.13.0
+# Alternative: tensorflow==2.13.0 (includes GPU support)
+
+# Data Processing
+numpy==1.24.3
+pandas==2.0.3
+pillow==10.0.0
+opencv-python==4.8.0.76
+scikit-learn==1.3.0
+
+# Visualization
+matplotlib==3.7.2
+seaborn==0.12.2
+plotly==5.15.0
+
+# Progress Tracking
+tqdm==4.65.0
+
+# Data Download
+requests==2.31.0
+urllib3==2.0.4
+
+# Model Export
+h5py==3.9.0
+
+# Utilities
+pyyaml==6.0.1
+jsonlines==3.1.0
+
+# Optional: For advanced augmentation
+# albumentations==1.3.1
+
+# Optional: For model optimization
+# tensorflow-model-optimization==0.7.3
+
+# Optional: For distributed training
+# horovod==0.28.1
+
+# System utilities
+psutil==5.9.5

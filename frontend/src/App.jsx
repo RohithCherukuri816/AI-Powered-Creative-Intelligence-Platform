@@ -7,6 +7,8 @@ import GeneratedImageCard from './components/GeneratedImageCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
 import TouchGestures from './components/TouchGestures';
+import RecognitionDisplay from './components/RecognitionDisplay';
+import RecognitionStatus from './components/RecognitionStatus';
 import { api, toAbsoluteUrl } from './api';
 
 function App() {
@@ -27,7 +29,7 @@ function App() {
 
     const checkForDrawingContent = (dataURL) => {
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const img = new Image();
 
         img.onload = function () {
@@ -69,6 +71,8 @@ function App() {
             const result = await api.generateDesign(prompt, sketchData);
             setGeneratedImage(toAbsoluteUrl(result.image_url));
             setRecognizedLabel(result.recognized_label || null);
+            setConfidence(result.confidence || null);
+            setRecognitionSuccess(result.recognition_success || false);
             setActiveStep(4);
         } catch (error) {
             console.error('Generation failed:', error);
@@ -80,10 +84,14 @@ function App() {
     };
 
     const [recognizedLabel, setRecognizedLabel] = useState(null);
+    const [confidence, setConfidence] = useState(null);
+    const [recognitionSuccess, setRecognitionSuccess] = useState(false);
 
     const handleTryAgain = () => {
         setGeneratedImage(null);
         setRecognizedLabel(null);
+        setConfidence(null);
+        setRecognitionSuccess(false);
         setError(null);
         setActiveStep(2);
     };
@@ -287,6 +295,15 @@ function App() {
                     />
                 </motion.div>
 
+                {/* Recognition Display - Show when we have recognition results */}
+                {(recognizedLabel || recognitionSuccess !== null) && (
+                    <RecognitionDisplay
+                        recognizedLabel={recognizedLabel}
+                        confidence={confidence}
+                        recognitionSuccess={recognitionSuccess}
+                    />
+                )}
+
                 {/* Enhanced Prompt Input - Only show if there's an actual drawing */}
                 {hasDrawing && (
                     <motion.div
@@ -297,6 +314,8 @@ function App() {
                         <PromptInput
                             onGenerate={handleGenerate}
                             isLoading={isLoading}
+                            recognizedLabel={recognizedLabel}
+                            confidence={confidence}
                         />
                     </motion.div>
                 )}
@@ -328,6 +347,7 @@ function App() {
                             <GeneratedImageCard
                                 imageUrl={generatedImage}
                                 onTryAgain={handleTryAgain}
+                                label={recognizedLabel}
                             />
                         </motion.div>
                     )}
@@ -406,6 +426,14 @@ function App() {
 
             {/* Touch Gestures Helper */}
             <TouchGestures />
+
+            {/* Recognition Status */}
+            <RecognitionStatus
+                isLoading={isLoading}
+                recognizedLabel={recognizedLabel}
+                confidence={confidence}
+                recognitionSuccess={recognitionSuccess}
+            />
         </div>
     );
 }

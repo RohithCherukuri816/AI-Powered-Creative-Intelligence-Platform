@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Send, Palette } from 'lucide-react';
 
-const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestionStyle }) => {
+const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestionStyle, recognizedLabel, confidence }) => {
     const [prompt, setPrompt] = useState('');
 
     const suggestions = [
@@ -101,10 +101,9 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
 
                     {/* Character counter */}
                     <div className="absolute bottom-3 left-5">
-                        <motion.span 
-                            className={`text-xs font-medium ${
-                                prompt.length > 100 ? 'text-rose-500' : 'text-orange-500/70'
-                            }`}
+                        <motion.span
+                            className={`text-xs font-medium ${prompt.length > 100 ? 'text-rose-500' : 'text-orange-500/70'
+                                }`}
                             animate={{ scale: prompt.length > 100 ? [1, 1.1, 1] : 1 }}
                             transition={{ duration: 0.3 }}
                         >
@@ -117,11 +116,11 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                         type="submit"
                         disabled={!prompt.trim() || isLoading}
                         className="absolute right-4 top-4 p-3 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transition-all duration-300 flex items-center justify-center"
-                        style={{ 
+                        style={{
                             background: mergedButtonStyle.background,
                             boxShadow: mergedButtonStyle.shadow
                         }}
-                        whileHover={{ 
+                        whileHover={{
                             scale: isLoading ? 1 : 1.1
                         }}
                         whileTap={{ scale: 0.9 }}
@@ -150,11 +149,11 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                     type="submit"
                     disabled={!prompt.trim() || isLoading}
                     className="w-full py-4 text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg text-lg relative overflow-hidden group"
-                    style={{ 
+                    style={{
                         background: mergedButtonStyle.background,
                         boxShadow: mergedButtonStyle.shadow
                     }}
-                    whileHover={{ 
+                    whileHover={{
                         scale: isLoading ? 1 : 1.02
                     }}
                     whileTap={{ scale: 0.98 }}
@@ -165,9 +164,9 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                         animate={{ x: [-100, 100] }}
                         transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
                     />
-                    
+
                     {isLoading ? (
-                        <motion.span 
+                        <motion.span
                             className="flex items-center justify-center gap-3 relative z-10"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -180,7 +179,7 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                             Crafting Your Masterpiece...
                         </motion.span>
                     ) : (
-                        <motion.span 
+                        <motion.span
                             className="flex items-center justify-center gap-3 relative z-10"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -195,15 +194,54 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                 </motion.button>
             </form>
 
+            {/* Recognition-Based Suggestions */}
+            {recognizedLabel && (
+                <motion.div
+                    className="mt-6 p-4 bg-blue-50/80 border border-blue-200 rounded-xl"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                >
+                    <div className="text-center mb-3">
+                        <p className="text-sm font-medium text-blue-700 inline-flex items-center gap-2">
+                            🎯 Detected: <span className="capitalize font-bold">{recognizedLabel.replace(/-/g, ' ')}</span>
+                            {confidence && (
+                                <span className="text-xs bg-blue-100 px-2 py-1 rounded-full">
+                                    {Math.round(confidence * 100)}%
+                                </span>
+                            )}
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        {[
+                            `realistic ${recognizedLabel.replace(/-/g, ' ')}`,
+                            `watercolor ${recognizedLabel.replace(/-/g, ' ')}`,
+                            `cartoon ${recognizedLabel.replace(/-/g, ' ')}`,
+                            `vintage ${recognizedLabel.replace(/-/g, ' ')}`
+                        ].map((suggestion, index) => (
+                            <motion.button
+                                key={index}
+                                onClick={() => handleSuggestionClick(suggestion)}
+                                className="px-3 py-2 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors duration-200 font-medium"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                {suggestion}
+                            </motion.button>
+                        ))}
+                    </div>
+                </motion.div>
+            )}
+
             {/* Style Suggestions */}
-            <motion.div 
+            <motion.div
                 className="mt-8"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6 }}
             >
                 <div className="text-center mb-4">
-                    <motion.p 
+                    <motion.p
                         className="text-sm font-medium text-gray-600 inline-flex items-center gap-2 bg-white/50 px-4 py-2 rounded-full border border-orange-200"
                         whileHover={{ scale: 1.05 }}
                     >
@@ -212,7 +250,7 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                         <Sparkles size={14} className="text-orange-500" />
                     </motion.p>
                 </div>
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {suggestions.map((suggestion, index) => (
                         <motion.button
@@ -224,7 +262,7 @@ const PromptInput = ({ onGenerate, isLoading, inputStyle, buttonStyle, suggestio
                                 border: mergedSuggestionStyle.border,
                                 color: mergedSuggestionStyle.color
                             }}
-                            whileHover={{ 
+                            whileHover={{
                                 scale: 1.05
                             }}
                             whileTap={{ scale: 0.95 }}

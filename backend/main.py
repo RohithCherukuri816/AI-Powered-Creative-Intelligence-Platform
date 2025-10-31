@@ -33,6 +33,8 @@ app = FastAPI(
 default_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
 ]
 extra_origins = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if os.getenv("CORS_ALLOWED_ORIGINS") else []
 allowed_origins = [o.strip() for o in (default_origins + extra_origins) if o and o.strip()]
@@ -65,9 +67,18 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    from routes.design import get_image_processor
+    
+    # Get processor status without triggering model load
+    processor = get_image_processor()
+    models_loaded = processor.are_models_loaded()
+    
     return {
         "status": "ok",
-        "message": "AI Creative Platform is running smoothly! ✨"
+        "message": "AI Creative Platform is running smoothly! ✨",
+        "ai_models_loaded": models_loaded,
+        "device": processor.device,
+        "ai_enabled": processor.config["use_ai_models"]
     }
 
 if __name__ == "__main__":

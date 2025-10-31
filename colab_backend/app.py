@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from PIL import Image
 
 from .processor import ImageProcessor
-from .recognizer import DoodleRecognizer
+from .mobilenet_recognizer import MobileNetDoodleRecognizer
 
 
 class DesignRequest(BaseModel):
@@ -55,7 +55,7 @@ def create_app() -> FastAPI:
 
     # Initialize components
     processor = ImageProcessor()
-    recognizer = DoodleRecognizer()
+    recognizer = MobileNetDoodleRecognizer()
 
     @app.get("/")
     async def root():
@@ -151,8 +151,13 @@ def create_app() -> FastAPI:
         return {
             "supported_labels": recognizer.classes,
             "total_categories": len(recognizer.classes),
-            "message": "System automatically recognizes your doodle and transforms it realistically using your prompt"
+            "message": "MobileNet-powered doodle recognition with Stable Diffusion generation"
         }
+    
+    @app.get("/model-info")
+    async def get_model_info():
+        """Return information about the current model"""
+        return recognizer.get_model_info()
 
     return app
 

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Brush, Eraser, RotateCcw, Trash2, Palette, Download } from 'lucide-react';
+import RecognitionHint from './RecognitionHint';
 
 const DrawingCanvas = ({
     onSketchChange,
@@ -15,6 +16,7 @@ const DrawingCanvas = ({
     const [history, setHistory] = useState([]);
     const [lastX, setLastX] = useState(0);
     const [lastY, setLastY] = useState(0);
+    const [hasDrawingContent, setHasDrawingContent] = useState(false);
 
     const colors = [
         '#DC2626', '#EA580C', '#D97706', '#65A30D', '#059669',
@@ -88,7 +90,7 @@ const DrawingCanvas = ({
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         // Set canvas size
         canvas.width = 600;
@@ -137,7 +139,7 @@ const DrawingCanvas = ({
         if (!isDrawing) return;
 
         const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-        const ctx = canvasRef.current.getContext('2d');
+        const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
 
         // Draw smooth line
         ctx.lineTo(x, y);
@@ -147,16 +149,35 @@ const DrawingCanvas = ({
         setLastY(y);
     };
 
+    const checkDrawingContent = () => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Check if there are any non-white pixels
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i] < 240 || data[i + 1] < 240 || data[i + 2] < 240) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     const stopDrawing = () => {
         if (!isDrawing) return;
         setIsDrawing(false);
 
-        const ctx = canvasRef.current.getContext('2d');
+        const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
         ctx.closePath();
 
         // Save state to history
         const imageData = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
         setHistory(prev => [...prev.slice(-9), imageData]);
+
+        // Check for drawing content
+        const hasContent = checkDrawingContent();
+        setHasDrawingContent(hasContent);
 
         // Convert canvas to base64 and notify parent
         const dataURL = canvasRef.current.toDataURL('image/png');
@@ -171,7 +192,7 @@ const DrawingCanvas = ({
         setIsDrawing(true);
         const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
 
-        const ctx = canvasRef.current.getContext('2d');
+        const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
 
         if (tool === 'eraser') {
             ctx.globalCompositeOperation = 'destination-out';
@@ -196,7 +217,7 @@ const DrawingCanvas = ({
         if (!isDrawing) return;
 
         const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
-        const ctx = canvasRef.current.getContext('2d');
+        const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
 
         // Draw smooth line
         ctx.lineTo(x, y);
@@ -212,7 +233,7 @@ const DrawingCanvas = ({
         if (!isDrawing) return;
         setIsDrawing(false);
 
-        const ctx = canvasRef.current.getContext('2d');
+        const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
         ctx.closePath();
 
         // Save state to history
@@ -230,7 +251,7 @@ const DrawingCanvas = ({
             setHistory(newHistory);
 
             const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             ctx.putImageData(newHistory[newHistory.length - 1], 0, 0);
 
             const dataURL = canvas.toDataURL('image/png');
@@ -240,12 +261,13 @@ const DrawingCanvas = ({
 
     const clearCanvas = () => {
         const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         setHistory([imageData]);
+        setHasDrawingContent(false);
 
         const dataURL = canvas.toDataURL('image/png');
         onSketchChange(dataURL);
@@ -371,7 +393,7 @@ const DrawingCanvas = ({
             </div>
 
             {/* Canvas Container */}
-            <div className="flex justify-center">
+            <div className="flex justify-center relative">
                 <canvas
                     ref={canvasRef}
                     onMouseDown={startDrawing}
@@ -384,6 +406,9 @@ const DrawingCanvas = ({
                     className="touch-none select-none"
                     style={mergedCanvasStyle}
                 />
+
+                {/* Recognition Hint */}
+                <RecognitionHint hasDrawing={hasDrawingContent} />
             </div>
 
             {/* Enhanced Instructions */}
