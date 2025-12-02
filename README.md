@@ -4,10 +4,6 @@
 
 <br/>
 
-<!-- Project Title -->
-<h1>
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=45&duration=2000&pause=500&color=F75C7E&center=true&vCenter=true&width=800&lines=🎨+Doodle+Recognition+%26+Styling" alt="Project Title" />
-</h1>
 
 <h3>✨ Transform Your Sketches into Stunning Realistic Art with AI ✨</h3>
 
