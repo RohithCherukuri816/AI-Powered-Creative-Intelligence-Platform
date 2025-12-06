@@ -1224,17 +1224,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 🙏 Acknowledgments
-
-- **Hugging Face** for the excellent transformers library
-- **Google** for the Quick Draw dataset
-- **Kaggle** for free GPU training
-- **ControlNet** for structure-preserving AI
-- **Stable Diffusion** for image generation
-- **FastAPI** for the high-performance web framework
-- **React** for the beautiful UI framework
-
----
 
 </div>
 
